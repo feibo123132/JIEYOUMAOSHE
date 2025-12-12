@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants, easeInOut } from 'framer-motion';
 
 interface CatAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -15,13 +15,13 @@ const sizeClasses = {
   xl: 'w-40 h-40 text-8xl'
 };
 
-const animationVariants = {
+const animationVariants: Variants = {
   float: {
     y: [0, -10, 0],
     transition: {
       duration: 3,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: easeInOut
     }
   },
   bounce: {
@@ -29,7 +29,7 @@ const animationVariants = {
     transition: {
       duration: 1,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: easeInOut
     }
   },
   pulse: {
@@ -37,7 +37,7 @@ const animationVariants = {
     transition: {
       duration: 2,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: easeInOut
     }
   },
   none: {}
