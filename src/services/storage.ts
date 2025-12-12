@@ -54,16 +54,21 @@ export function saveCat(cat: Cat | null) {
   localStorage.setItem(CAT_KEY, JSON.stringify(cat));
 }
 
+type InteractionDTO = Omit<Interaction, 'createdAt' | 'interactionDate'> & {
+  createdAt: string;
+  interactionDate: string;
+};
+
 export function loadTodayInteractions(userId: string, today: Date): Interaction[] {
   const key = interactionsKey(userId, today);
   const raw = localStorage.getItem(key);
   if (!raw) return [];
   try {
-    const arr = JSON.parse(raw) as Interaction[];
-    return arr.map(i => ({
+    const arr = JSON.parse(raw) as InteractionDTO[];
+    return arr.map((i) => ({
       ...i,
-      createdAt: new Date(i.createdAt as any),
-      interactionDate: new Date(i.interactionDate as any)
+      createdAt: new Date(i.createdAt),
+      interactionDate: new Date(i.interactionDate)
     }));
   } catch {
     return [];

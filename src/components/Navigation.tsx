@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, ShoppingBag, User, Heart } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const Navigation: React.FC = () => {
   const location = useLocation();

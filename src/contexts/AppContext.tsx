@@ -261,7 +261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!storedUser) saveUser(defaultUser);
         if (!storedCat) saveCat(defaultCat);
-      } catch (error) {
+      } catch {
         dispatch({ type: 'SET_ERROR', payload: '初始化应用失败' });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });

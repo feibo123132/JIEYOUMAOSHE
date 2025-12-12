@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 
 interface InteractionButtonProps {
   icon: string;
-  name: string;
   color: string;
   onClick: () => void;
   disabled?: boolean;
@@ -12,7 +11,6 @@ interface InteractionButtonProps {
 
 const InteractionButton: React.FC<InteractionButtonProps> = ({
   icon,
-  name,
   color,
   onClick,
   disabled = false,

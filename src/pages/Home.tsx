@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, ShoppingBag, User, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import CatAvatar from '@/components/CatAvatar';
@@ -153,7 +151,6 @@ const Home: React.FC = () => {
                   <div key={type.id} className="flex flex-col items-center">
                     <InteractionButton
                       icon={type.icon}
-                      name={type.name}
                       color={type.color}
                       onClick={() => handleInteraction(type.id as any)}
                       isAnimating={interactionAnimation === type.id}
