@@ -5,6 +5,8 @@ import CatAvatar from '@/components/CatAvatar';
 import InteractionButton from '@/components/InteractionButton';
 import ProgressBar from '@/components/ProgressBar';
 
+type InteractionType = 'feed' | 'pet' | 'bath' | 'play' | 'sleep'
+
 const Home: React.FC = () => {
   const { state, performInteraction } = useApp();
   const [interactionAnimation, setInteractionAnimation] = useState<string | null>(null);
@@ -12,7 +14,7 @@ const Home: React.FC = () => {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [unlockedContent, setUnlockedContent] = useState<string[]>([]);
 
-  const interactionTypes = [
+  const interactionTypes: { id: InteractionType; name: string; icon: string; color: string }[] = [
     { id: 'feed', name: '喂食', icon: '🍽️', color: 'bg-orange-400' },
     { id: 'pet', name: '撸猫', icon: '🤗', color: 'bg-pink-400' },
     { id: 'bath', name: '洗澡', icon: '🛁', color: 'bg-blue-400' },
@@ -20,7 +22,7 @@ const Home: React.FC = () => {
     { id: 'sleep', name: '哄睡', icon: '😴', color: 'bg-purple-400' }
   ];
 
-  const handleInteraction = async (type: 'feed' | 'pet' | 'bath' | 'play' | 'sleep') => {
+  const handleInteraction = async (type: InteractionType) => {
     setInteractionAnimation(type);
     
     try {
@@ -152,7 +154,7 @@ const Home: React.FC = () => {
                     <InteractionButton
                       icon={type.icon}
                       color={type.color}
-                      onClick={() => handleInteraction(type.id as any)}
+                      onClick={() => handleInteraction(type.id)}
                       isAnimating={interactionAnimation === type.id}
                     />
                     <span className="mt-2 text-sm font-cute text-gray-700">{type.name}</span>
