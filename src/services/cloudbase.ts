@@ -107,14 +107,25 @@ export async function getTodayInteractions(uid: string, date: Date): Promise<Int
   const db = getApp().database()
   const day = dateKey(date)
   const res = await db.collection(COL_INTERACTIONS).where({ userId: uid, day }).get()
-  return res.data.map((i: any) => ({
+  type InteractionDoc = {
+    _id?: string
+    id?: string
+    userId: string
+    catId: string
+    type: Interaction['type']
+    experienceGained: number
+    createdAt?: number
+    day: string
+  }
+  const rows = (res.data ?? []) as InteractionDoc[]
+  return rows.map((i) => ({
     id: String(i.id ?? i._id ?? Date.now()),
     userId: i.userId,
     catId: i.catId,
     type: i.type,
     experienceGained: i.experienceGained,
-    createdAt: new Date(i.createdAt ?? Date.now()),
-    interactionDate: new Date(i.createdAt ?? Date.now())
+    createdAt: new Date(typeof i.createdAt === 'number' ? i.createdAt : Date.now()),
+    interactionDate: new Date(typeof i.createdAt === 'number' ? i.createdAt : Date.now())
   }))
 }
 
@@ -149,4 +160,3 @@ export async function writeCoin(userId: string, amount: number, sourceType: stri
   const day = dateKey(new Date())
   await db.collection(COL_COINS).add({ userId, amount, sourceType, createdAt: Date.now(), day })
 }
-
