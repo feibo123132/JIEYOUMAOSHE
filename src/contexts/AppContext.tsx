@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AppState, User, Cat, Interaction, ShopItem, InteractionResult } from '@/types';
-import { loadUser, saveUser, loadCat, saveCat, loadTodayInteractions, saveTodayInteractions, hasGainedExpToday, markExpGainedToday } from '@/services/storage';
+import { ensureLogin, getOrCreateUser, getCat as tcbGetCat, getTodayInteractions as tcbGetTodayInteractions, writeInteraction, updateCatExperience, updateUserCoins, writeCoin } from '@/services/cloudbase';
 
 type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
@@ -156,12 +156,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 计算奖励
     const interactionCount = state.todayInteractions.length + 1;
-    const experienceGained = hasGainedExpToday(state.user.id, now) ? 0 : 1;
+    const experienceGained = state.todayInteractions.some(i => i.userId === state.user!.id && i.interactionDate.toDateString() === now.toDateString() && i.experienceGained > 0) ? 0 : 1;
     const coinsEarned = getCoinReward(interactionCount);
 
-    if (experienceGained > 0) {
-      markExpGainedToday(state.user.id, now);
-    }
+    
 
     // 创建新的互动记录
     const newInteraction: Interaction = {
@@ -189,9 +187,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }});
     dispatch({ type: 'UPDATE_USER_COINS', payload: newCoinBalance });
 
-    saveTodayInteractions(state.user.id, now, [...state.todayInteractions, newInteraction]);
-    saveCat({ ...state.cat, totalExperience: newTotalExperience, currentLevel: levelUpResult.newLevel });
-    saveUser({ ...state.user, coinBalance: newCoinBalance });
+    await writeInteraction(newInteraction);
+    await updateCatExperience(newTotalExperience, levelUpResult.newLevel);
+    await updateUserCoins(state.user.id, newCoinBalance);
+    if (coinsEarned > 0) {
+      await writeCoin(state.user.id, coinsEarned, 'interaction');
+    }
 
     return {
       success: true,
@@ -209,28 +210,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       dispatch({ type: 'SET_LOADING', payload: true });
       
       try {
-        const storedUser = loadUser();
-        const storedCat = loadCat();
-        const today = new Date();
-        const defaultUser: User = storedUser || {
-          id: '1',
-          email: 'user@example.com',
-          name: '猫咪爱好者',
-          coinBalance: 128,
-          createdAt: new Date(),
-          lastActive: new Date()
-        };
-
-        const defaultCat: Cat = storedCat || {
-          id: '1',
-          name: 'JIEYOU萌宠',
-          currentLevel: 1,
-          totalExperience: 0,
-          appearance: 'default',
-          createdAt: new Date()
-        };
-
-        const todayInteractions = loadTodayInteractions(defaultUser.id, today);
+        const uid = await ensureLogin();
+        const user = await getOrCreateUser(uid);
+        const cat = await tcbGetCat();
+        const todayInteractions = await tcbGetTodayInteractions(uid, new Date());
 
         const mockShopItems: ShopItem[] = [
           {
@@ -254,13 +237,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             unlocked: false
           }
         ];
-        dispatch({ type: 'SET_USER', payload: defaultUser });
-        dispatch({ type: 'SET_CAT', payload: defaultCat });
+        dispatch({ type: 'SET_USER', payload: user });
+        dispatch({ type: 'SET_CAT', payload: cat });
         dispatch({ type: 'SET_TODAY_INTERACTIONS', payload: todayInteractions });
         dispatch({ type: 'SET_SHOP_ITEMS', payload: mockShopItems });
-
-        if (!storedUser) saveUser(defaultUser);
-        if (!storedCat) saveCat(defaultCat);
       } catch {
         dispatch({ type: 'SET_ERROR', payload: '初始化应用失败' });
       } finally {
@@ -271,17 +251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initializeApp();
   }, []);
 
-  useEffect(() => {
-    if (state.user) saveUser(state.user);
-  }, [state.user]);
-
-  useEffect(() => {
-    if (state.cat) saveCat(state.cat);
-  }, [state.cat]);
-
-  useEffect(() => {
-    if (state.user) saveTodayInteractions(state.user.id, new Date(), state.todayInteractions);
-  }, [state.todayInteractions, state.user]);
+  
 
   const value: AppContextType = {
     state,
