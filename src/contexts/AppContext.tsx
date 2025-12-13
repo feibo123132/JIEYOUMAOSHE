@@ -241,8 +241,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dispatch({ type: 'SET_CAT', payload: cat });
         dispatch({ type: 'SET_TODAY_INTERACTIONS', payload: todayInteractions });
         dispatch({ type: 'SET_SHOP_ITEMS', payload: mockShopItems });
-      } catch {
-        dispatch({ type: 'SET_ERROR', payload: '初始化应用失败' });
+      } catch (error) {
+        // --- 关键修改在这里 ---
+        console.error("【初始化失败，真实原因】:", error); 
+        dispatch({ type: 'SET_ERROR', payload: '初始化应用失败' })
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
