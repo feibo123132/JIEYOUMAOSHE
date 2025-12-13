@@ -60,23 +60,27 @@ type InteractionDoc = {
 
 // 4. 核心业务函数
 export async function ensureLogin(): Promise<string> {
-  const auth = getApp().auth()
-  const state = await auth.getLoginState()
-  
-  if (state?.user?.uid) {
-    return state.user.uid
+  const auth = getApp().auth() as unknown as {
+    getLoginState: () => Promise<{ user?: { uid: string } } | null>
+    signInAnonymously?: () => Promise<void>
+    anonymousAuthProvider?: () => { signIn: () => Promise<void> }
   }
+  const state = await auth.getLoginState()
+  if (state?.user?.uid) return state.user.uid
 
   console.log('正在尝试匿名登录腾讯云...')
-  // @ts-ignore: SDK 类型定义缺失，忽略检查
-  await auth.anonymousAuthProvider().signIn()
-  
-  const newState = await auth.getLoginState()
-  if (!newState?.user?.uid) {
-    throw new Error('CloudBase anonymous login failed')
+  if (typeof auth.signInAnonymously === 'function') {
+    await auth.signInAnonymously()
+  } else if (typeof auth.anonymousAuthProvider === 'function') {
+    await auth.anonymousAuthProvider().signIn()
+  } else {
+    throw new Error('CloudBase SDK 未提供匿名登录方法，请检查 @cloudbase/js-sdk 版本')
   }
-  
-  return newState.user.uid
+
+  const newState = await auth.getLoginState()
+  const uid = newState?.user?.uid
+  if (!uid) throw new Error('CloudBase anonymous login failed')
+  return uid
 }
 
 export async function getOrCreateUser(uid: string): Promise<User> {
