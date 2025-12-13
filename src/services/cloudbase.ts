@@ -19,14 +19,21 @@ function getApp() {
   return app
 }
 
+type LoginState = { user?: { uid: string } } | null
+
 export async function ensureLogin(): Promise<string> {
-  const a = getApp().auth()
-  const state = await a.getLoginState()
-  if (!state) {
-    await a.anonymousAuthProvider().signIn()
+  const auth = getApp().auth() as unknown as {
+    getLoginState: () => Promise<LoginState>
+    anonymousAuthProvider: () => { signIn: () => Promise<void> }
   }
-  const s = await a.getLoginState()
-  return s!.user!.uid
+  const state = await auth.getLoginState()
+  if (!state) {
+    await auth.anonymousAuthProvider().signIn()
+  }
+  const s = await auth.getLoginState()
+  const uid = s?.user?.uid
+  if (!uid) throw new Error('CloudBase login failed')
+  return uid
 }
 
 export async function getOrCreateUser(uid: string): Promise<User> {
