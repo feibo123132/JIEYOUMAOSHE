@@ -1,16 +1,17 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import cloudbase from '@cloudbase/js-sdk'
-import type { User, Cat, Interaction } from '@/types' // 确保这里的路径和你项目里的一致
+import type { User, Cat, Interaction } from '@/types'
 
-// 1. 强校验环境变量，防止静默失败
+// 1. 环境变量检查
 const envId = import.meta.env.VITE_CLOUDBASE_ENV_ID
 const region = import.meta.env.VITE_CLOUDBASE_REGION
 
 if (!envId) {
-  console.error('【致命错误】: 未找到 VITE_CLOUDBASE_ENV_ID 环境变量！请检查 .env.local 或 GitHub Secrets。')
+  console.error('【致命错误】: 未找到 VITE_CLOUDBASE_ENV_ID')
   throw new Error('Missing CloudBase Env ID')
 }
 
-// 2. 集合名称映射
+// 2. 常量定义
 const COL_USERS = 'Cat_users'
 const COL_CATS = 'Cat_pet'
 const COL_INTERACTIONS = 'Cat_interactions'
@@ -26,7 +27,26 @@ function getApp() {
   return app
 }
 
-// 定义 SDK 返回的原始数据类型，避免 any
+// 3. 定义数据库返回的原始类型（杜绝 any）
+type UserDoc = {
+  id?: string
+  _id?: string
+  email?: string
+  name?: string
+  coinBalance?: number
+  createdAt?: number | string | Date
+  lastActive?: number | string | Date
+}
+
+type CatDoc = {
+  _id?: string
+  name?: string
+  currentLevel?: number
+  totalExperience?: number
+  appearance?: string
+  createdAt?: number | string | Date
+}
+
 type InteractionDoc = {
   _id?: string
   id?: string
@@ -38,33 +58,25 @@ type InteractionDoc = {
   day: string
 }
 
-type LoginState = { user?: { uid: string } } | null
-
+// 4. 核心业务函数
 export async function ensureLogin(): Promise<string> {
-  const auth = getApp().auth() as any
-  
-  // 尝试获取当前状态
+  const auth = getApp().auth()
   const state = await auth.getLoginState()
   
-  if (state) {
-    // 已有登录态
-    return state.user?.uid || ''
+  if (state?.user?.uid) {
+    return state.user.uid
   }
 
-  // 无登录态，执行匿名登录
   console.log('正在尝试匿名登录腾讯云...')
+  // @ts-ignore: SDK 类型定义缺失，忽略检查
   await auth.anonymousAuthProvider().signIn()
   
-  // 再次获取
   const newState = await auth.getLoginState()
-  const uid = newState?.user?.uid
-  
-  if (!uid) {
+  if (!newState?.user?.uid) {
     throw new Error('CloudBase anonymous login failed')
   }
   
-  console.log('腾讯云登录成功, UID:', uid)
-  return uid
+  return newState.user.uid
 }
 
 export async function getOrCreateUser(uid: string): Promise<User> {
@@ -72,18 +84,17 @@ export async function getOrCreateUser(uid: string): Promise<User> {
   const res = await db.collection(COL_USERS).where({ id: uid }).limit(1).get()
   
   if (res.data.length > 0) {
-    const d = res.data[0]
+    const d = res.data[0] as UserDoc
     return {
-      id: d.id,
+      id: d.id || uid,
       email: d.email ?? '',
       name: d.name ?? '猫咪爱好者',
       coinBalance: d.coinBalance ?? 0,
-      createdAt: new Date(d.createdAt ?? Date.now()),
-      lastActive: new Date(d.lastActive ?? Date.now())
+      createdAt: new Date(d.createdAt || Date.now()),
+      lastActive: new Date(d.lastActive || Date.now())
     }
   }
 
-  // 创建新用户
   const now = Date.now()
   const u: User = {
     id: uid,
@@ -109,13 +120,11 @@ export async function getOrCreateUser(uid: string): Promise<User> {
 export async function getCat(): Promise<Cat> {
   const db = getApp().database()
   const res = await db.collection(COL_CATS).doc(THE_CAT_ID).get()
-  const d = res.data && res.data.length > 0 ? res.data[0] : {}
+  const d = (res.data && res.data.length > 0 ? res.data[0] : {}) as CatDoc
 
-  // 如果数据库里没猫，这里会报错或者返回空，但按流程你应该已经手动初始化过猫了
-  // 为了健壮性，如果没数据，我们返回默认值，并尝试初始化（双重保险）
   if (!d._id) {
-    console.warn('云端未找到猫咪数据，尝试初始化...')
-    const cat: Cat = {
+    // 如果没有猫，返回默认初始状态（实际生产中应报错或初始化）
+    return {
       id: THE_CAT_ID,
       name: 'JIEYOU萌宠',
       currentLevel: 1,
@@ -123,20 +132,6 @@ export async function getCat(): Promise<Cat> {
       appearance: 'default',
       createdAt: new Date()
     }
-    // 尝试写入（可能会因权限失败，但值得一试）
-    try {
-      await db.collection(COL_CATS).doc(THE_CAT_ID).set({
-        _id: THE_CAT_ID,
-        name: cat.name,
-        currentLevel: cat.currentLevel,
-        totalExperience: cat.totalExperience,
-        appearance: cat.appearance,
-        createdAt: Date.now()
-      })
-    } catch (e) {
-      console.error('初始化猫咪失败，请检查数据库权限', e)
-    }
-    return cat
   }
 
   return {
@@ -145,7 +140,7 @@ export async function getCat(): Promise<Cat> {
     currentLevel: d.currentLevel ?? 1,
     totalExperience: d.totalExperience ?? 0,
     appearance: d.appearance ?? 'default',
-    createdAt: new Date(d.createdAt ?? Date.now())
+    createdAt: new Date(d.createdAt || Date.now())
   }
 }
 
@@ -171,7 +166,8 @@ export async function getTodayInteractions(uid: string, date: Date): Promise<Int
     id: String(i.id ?? i._id ?? Date.now()),
     userId: i.userId,
     catId: i.catId,
-    type: i.type as any, // 这里为了兼容前端定义的字面量类型，使用 any 是安全的
+    // 强制转换为合法的 InteractionType，修复 ESLint 报错
+    type: i.type as Interaction['type'], 
     experienceGained: i.experienceGained,
     createdAt: new Date(typeof i.createdAt === 'number' ? i.createdAt : (i.createdAt || Date.now())),
     interactionDate: new Date(typeof i.createdAt === 'number' ? i.createdAt : (i.createdAt || Date.now()))
@@ -202,7 +198,6 @@ export async function updateUserCoins(userId: string, coinBalance: number) {
   const res = await db.collection(COL_USERS).where({ id: userId }).limit(1).get()
   
   if (res.data.length > 0) {
-    // 使用 _id (云端主键) 来更新
     await db.collection(COL_USERS).doc(res.data[0]._id).update({ coinBalance })
   }
 }
