@@ -1,16 +1,16 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom'
-import { AppProvider } from "@/contexts/AppContext";
-import Navigation from "@/components/Navigation";
-import Home from "@/pages/Home";
-import Shop from "@/pages/Shop";
-import Profile from "@/pages/Profile";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
+import { AppProvider } from '@/contexts/AppContext'
+import Navigation from '@/components/Navigation'
+import Home from '@/pages/Home'
+import Shop from '@/pages/Shop'
+import Profile from '@/pages/Profile'
+import Login from '@/pages/Login'
+import Register from '@/pages/Register'
 
 export default function App() {
   return (
     <AppProvider>
-      <Router basename={import.meta.env.BASE_URL}>
+      <Router>
         <div className="min-h-screen bg-warm-200">
           <Navigation />
           <main className="pb-16">
@@ -25,5 +25,5 @@ export default function App() {
         </div>
       </Router>
     </AppProvider>
-  );
+  )
 }
