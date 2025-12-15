@@ -210,10 +210,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       dispatch({ type: 'SET_LOADING', payload: true });
       
       try {
-        const uid = await ensureLogin();
-        const user = await getOrCreateUser(uid);
+        const existingUid = localStorage.getItem('tcb_auth');
         const cat = await tcbGetCat();
-        const todayInteractions = await tcbGetTodayInteractions(uid, new Date());
+        let user: User | null = null;
+        let todayInteractions: Interaction[] = [];
+        if (existingUid) {
+          user = await getOrCreateUser(existingUid);
+          todayInteractions = await tcbGetTodayInteractions(existingUid, new Date());
+        }
 
         const mockShopItems: ShopItem[] = [
           {
@@ -242,8 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dispatch({ type: 'SET_TODAY_INTERACTIONS', payload: todayInteractions });
         dispatch({ type: 'SET_SHOP_ITEMS', payload: mockShopItems });
       } catch (error) {
-        // --- 关键修改在这里 ---
-        console.error("【初始化失败，真实原因】:", error); 
+        console.error('初始化失败:', error);
         dispatch({ type: 'SET_ERROR', payload: '初始化应用失败' })
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });

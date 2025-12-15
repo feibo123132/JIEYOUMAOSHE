@@ -1,14 +1,49 @@
-import React, { useState } from 'react';
-import { Mail, Lock, Heart } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Phone, ShieldCheck, Heart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { sendCode, verifyCode, getOrCreateUser } from '@/services/cloudbase';
+import { useApp } from '@/contexts/AppContext';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { dispatch } = useApp();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (countdown > 0) {
+      const t = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [countdown]);
+
+  const onSendCode = async () => {
+    if (!/^1\d{10}$/.test(phone)) { setError('手机号格式不正确'); return }
+    setError(''); setLoading(true);
+    try {
+      const ok = await sendCode(phone);
+      if (ok) setCountdown(60); else setError('验证码发送失败');
+    } catch {
+      setError('验证码发送失败');
+    } finally { setLoading(false) }
+  };
+
+  const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 登录逻辑将在集成Supabase后实现
-    console.log('Login attempt:', { email, password });
+    if (!/^\d{6}$/.test(code)) { setError('验证码格式不正确'); return }
+    setError(''); setLoading(true);
+    try {
+      const uid = await verifyCode(phone, code);
+      localStorage.setItem('tcb_auth', uid);
+      const user = await getOrCreateUser(uid);
+      dispatch({ type: 'SET_USER', payload: user });
+      navigate('/');
+    } catch {
+      setError('登录失败，请重试');
+    } finally { setLoading(false) }
   };
 
   return (
@@ -23,59 +58,38 @@ const Login: React.FC = () => {
         </div>
         
         <div className="card-cute">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={onLogin} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-cute text-primary-400 mb-2">
-                邮箱地址
+              <label htmlFor="phone" className="block text-sm font-cute text-primary-400 mb-2">
+                手机号
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary-300" />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-primary-200 rounded-2xl focus:outline-none focus:border-primary-400 bg-white font-cute"
-                  placeholder="请输入邮箱地址"
-                  required
-                />
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary-300" />
+                <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-4 py-3 border-2 border-primary-200 rounded-2xl focus:outline-none focus:border-primary-400 bg-white font-cute" placeholder="请输入手机号" required />
               </div>
             </div>
-            
             <div>
-              <label htmlFor="password" className="block text-sm font-cute text-primary-400 mb-2">
-                密码
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary-300" />
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-primary-200 rounded-2xl focus:outline-none focus:border-primary-400 bg-white font-cute"
-                  placeholder="请输入密码"
-                  required
-                />
+              <label htmlFor="code" className="block text-sm font-cute text-primary-400 mb-2">验证码</label>
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <ShieldCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary-300" />
+                  <input id="code" type="text" value={code} onChange={(e) => setCode(e.target.value)} className="w-full pl-10 pr-4 py-3 border-2 border-primary-200 rounded-2xl focus:outline-none focus:border-primary-400 bg-white font-cute" placeholder="请输入6位验证码" required />
+                </div>
+                <button type="button" onClick={onSendCode} disabled={countdown>0||loading} className="px-4 py-3 rounded-2xl bg-primary-300 text-white font-cute disabled:opacity-50">
+                  {countdown>0? `${countdown}s` : '获取验证码'}
+                </button>
               </div>
             </div>
-            
             <button
               type="submit"
               className="w-full btn-cute text-lg py-3"
             >
-              登录
+              登录/注册
             </button>
+            {error && (<div className="text-center text-red-500 font-cute">{error}</div>)}
           </form>
           
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              还没有账号？
-              <a href="/register" className="text-primary-400 hover:text-primary-500 font-cute ml-1">
-                立即注册
-              </a>
-            </p>
-          </div>
+          
         </div>
         
         {/* 装饰性猫咪 */}

@@ -217,3 +217,29 @@ export async function writeCoin(userId: string, amount: number, sourceType: stri
     day 
   })
 }
+
+type LoginSendRes = { result?: { ok?: boolean } }
+type LoginVerifyRes = { result?: { uid?: string }; uid?: string }
+
+async function callLoginFunction(payload: Record<string, unknown>): Promise<unknown> {
+  const appInstance = getApp() as any
+  if (appInstance.functions && typeof appInstance.functions.callFunction === 'function') {
+    return appInstance.functions.callFunction({ name: 'login', data: payload })
+  }
+  if (typeof appInstance.callFunction === 'function') {
+    return appInstance.callFunction({ name: 'login', data: payload })
+  }
+  throw new Error('CloudBase callFunction not available')
+}
+
+export async function sendCode(phone: string): Promise<boolean> {
+  const res = await callLoginFunction({ action: 'send', phone }) as LoginSendRes
+  return !!(res && (res.result?.ok ?? (res as any).result))
+}
+
+export async function verifyCode(phone: string, code: string): Promise<string> {
+  const res = await callLoginFunction({ action: 'verify', phone, code }) as LoginVerifyRes
+  const uid = res?.result?.uid || res?.uid
+  if (!uid) throw new Error('verify failed')
+  return uid
+}

@@ -6,19 +6,19 @@ import Shop from '@/pages/Shop'
 import Profile from '@/pages/Profile'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
+import ProtectedRoute from '@/components/ProtectedRoute'
 
 export default function App() {
   return (
     <AppProvider>
-      {/* 核心修改：直接移除 basename 属性 */}
       <Router>
         <div className="min-h-screen bg-warm-200">
           <Navigation />
           <main className="pb-16">
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/profile" element={<Profile />} />
+              <Route path="/shop" element={<ProtectedRoute element={<Shop />} />} />
+              <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
             </Routes>
