@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Phone, ShieldCheck, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { sendCode, verifyCode, getOrCreateUser } from '@/services/cloudbase';
+import { sendPhoneCode, signInWithPhoneCode, getOrCreateUser } from '@/services/cloudbase';
 import { useApp } from '@/contexts/AppContext';
 
 const Login: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [requestId, setRequestId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -24,8 +25,9 @@ const Login: React.FC = () => {
     if (!/^1\d{10}$/.test(phone)) { setError('手机号格式不正确'); return }
     setError(''); setLoading(true);
     try {
-      const ok = await sendCode(phone);
-      if (ok) setCountdown(60); else setError('验证码发送失败');
+      const res = await sendPhoneCode(phone);
+      setRequestId(res.requestId);
+      setCountdown(60);
     } catch (e: any) {
       setError(e?.message ? `验证码发送失败：${e.message}` : '验证码发送失败');
     } finally { setLoading(false) }
@@ -36,7 +38,7 @@ const Login: React.FC = () => {
     if (!/^\d{6}$/.test(code)) { setError('验证码格式不正确'); return }
     setError(''); setLoading(true);
     try {
-      const uid = await verifyCode(phone, code);
+      const uid = await signInWithPhoneCode(phone, code, requestId);
       localStorage.setItem('tcb_auth', uid);
       const user = await getOrCreateUser(uid);
       dispatch({ type: 'SET_USER', payload: user });

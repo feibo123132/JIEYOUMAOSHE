@@ -259,3 +259,36 @@ export async function verifyCode(phone: string, code: string): Promise<string> {
   if (!uid) throw new Error('verify failed')
   return uid
 }
+
+// 前端直调：CloudBase 内置手机号登录能力
+export async function sendPhoneCode(phone: string): Promise<{ requestId?: string }> {
+  await ensureLogin()
+  const auth = (getApp() as any).auth()
+  if (typeof auth.sendSmsCode === 'function') {
+    const res = await auth.sendSmsCode({ phoneNumber: phone })
+    return { requestId: res?.requestId }
+  }
+  if (typeof auth.sendPhoneCode === 'function') {
+    const res = await auth.sendPhoneCode({ phoneNumber: phone })
+    return { requestId: res?.requestId }
+  }
+  throw new Error('CloudBase 未提供手机号验证码发送 API，请在控制台开启手机号登录')
+}
+
+export async function signInWithPhoneCode(phone: string, code: string, requestId?: string): Promise<string> {
+  await ensureLogin()
+  const auth = (getApp() as any).auth()
+  if (typeof auth.signInWithPhone === 'function') {
+    const res = await auth.signInWithPhone({ phoneNumber: phone, code })
+    const uid = res?.user?.uid || res?.uid
+    if (!uid) throw new Error('登录失败')
+    return uid
+  }
+  if (typeof auth.signInWithPhoneCode === 'function') {
+    const res = await auth.signInWithPhoneCode({ phoneNumber: phone, code, requestId })
+    const uid = res?.user?.uid || res?.uid
+    if (!uid) throw new Error('登录失败')
+    return uid
+  }
+  throw new Error('CloudBase 未提供手机号验证码登录 API，请在控制台开启手机号登录')
+}
