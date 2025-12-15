@@ -23,6 +23,15 @@ let app: ReturnType<typeof cloudbase.init> | null = null
 function getApp() {
   if (!app) {
     app = cloudbase.init({ env: envId, region: region })
+    try {
+      // 将登录态持久化到浏览器，避免刷新后丢失
+      (app as any).auth({ persistence: 'local' })
+    } catch (e) {
+      console.warn('CloudBase auth persistence setup warning:', e)
+    }
+    if (!region) {
+      console.warn('VITE_CLOUDBASE_REGION 未设置，使用默认区域；请在 .env / Secrets 配置 REGION')
+    }
   }
   return app
 }
@@ -68,19 +77,24 @@ export async function ensureLogin(): Promise<string> {
   const state = await auth.getLoginState()
   if (state?.user?.uid) return state.user.uid
 
-  console.log('正在尝试匿名登录腾讯云...')
-  if (typeof auth.signInAnonymously === 'function') {
-    await auth.signInAnonymously()
-  } else if (typeof auth.anonymousAuthProvider === 'function') {
-    await auth.anonymousAuthProvider().signIn()
-  } else {
-    throw new Error('CloudBase SDK 未提供匿名登录方法，请检查 @cloudbase/js-sdk 版本')
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (typeof auth.signInAnonymously === 'function') {
+        await auth.signInAnonymously()
+      } else if (typeof auth.anonymousAuthProvider === 'function') {
+        await auth.anonymousAuthProvider().signIn()
+      } else {
+        throw new Error('SDK 不支持匿名登录 API')
+      }
+      const s = await auth.getLoginState()
+      if (s?.user?.uid) return s.user.uid
+    } catch (e: any) {
+      lastError = e
+      console.error('匿名登录失败:', e?.code, e?.message || e)
+    }
   }
-
-  const newState = await auth.getLoginState()
-  const uid = newState?.user?.uid
-  if (!uid) throw new Error('CloudBase anonymous login failed')
-  return uid
+  throw (lastError as any) ?? new Error('CloudBase anonymous login failed')
 }
 
 export async function getOrCreateUser(uid: string): Promise<User> {
@@ -223,21 +237,8 @@ type LoginVerifyRes = { result?: { uid?: string }; uid?: string }
 
 async function callLoginFunction(payload: Record<string, unknown>): Promise<unknown> {
   const appInstance = getApp() as any
-  // 确保有登录态（匿名）
-  try {
-    const auth = appInstance.auth()
-    const s = await auth.getLoginState()
-    if (!s) {
-      if (typeof auth.signInAnonymously === 'function') {
-        await auth.signInAnonymously()
-      } else if (typeof auth.anonymousAuthProvider === 'function') {
-        await auth.anonymousAuthProvider().signIn()
-      }
-    }
-  } catch (e) {
-    console.error('CloudBase 认证失败:', e)
-    throw e
-  }
+  // 调用前强制确保认证
+  await ensureLogin()
   if (appInstance.functions && typeof appInstance.functions.callFunction === 'function') {
     return appInstance.functions.callFunction({ name: 'login', data: payload })
   }

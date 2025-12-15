@@ -26,8 +26,8 @@ const Login: React.FC = () => {
     try {
       const ok = await sendCode(phone);
       if (ok) setCountdown(60); else setError('验证码发送失败');
-    } catch {
-      setError('验证码发送失败');
+    } catch (e: any) {
+      setError(e?.message ? `验证码发送失败：${e.message}` : '验证码发送失败');
     } finally { setLoading(false) }
   };
 
