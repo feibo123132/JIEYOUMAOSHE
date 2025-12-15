@@ -10,6 +10,7 @@ import Register from '@/pages/Register'
 export default function App() {
   return (
     <AppProvider>
+      {/* 核心修改：直接移除 basename 属性 */}
       <Router>
         <div className="min-h-screen bg-warm-200">
           <Navigation />
