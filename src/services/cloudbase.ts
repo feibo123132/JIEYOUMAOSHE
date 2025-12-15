@@ -223,6 +223,21 @@ type LoginVerifyRes = { result?: { uid?: string }; uid?: string }
 
 async function callLoginFunction(payload: Record<string, unknown>): Promise<unknown> {
   const appInstance = getApp() as any
+  // 确保有登录态（匿名）
+  try {
+    const auth = appInstance.auth()
+    const s = await auth.getLoginState()
+    if (!s) {
+      if (typeof auth.signInAnonymously === 'function') {
+        await auth.signInAnonymously()
+      } else if (typeof auth.anonymousAuthProvider === 'function') {
+        await auth.anonymousAuthProvider().signIn()
+      }
+    }
+  } catch (e) {
+    console.error('CloudBase 认证失败:', e)
+    throw e
+  }
   if (appInstance.functions && typeof appInstance.functions.callFunction === 'function') {
     return appInstance.functions.callFunction({ name: 'login', data: payload })
   }
