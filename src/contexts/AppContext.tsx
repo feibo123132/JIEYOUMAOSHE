@@ -211,15 +211,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       try {
         const uid = await ensureLogin();
-        if (uid) localStorage.setItem('tcb_auth', uid);
-        const existingUid = uid || localStorage.getItem('tcb_auth');
         const cat = await tcbGetCat();
-        let user: User | null = null;
-        let todayInteractions: Interaction[] = [];
-        if (existingUid) {
-          user = await getOrCreateUser(existingUid);
-          todayInteractions = await tcbGetTodayInteractions(existingUid, new Date());
-        }
+        const user = await getOrCreateUser(uid);
+        const todayInteractions = await tcbGetTodayInteractions(uid, new Date());
 
         const mockShopItems: ShopItem[] = [
           {
