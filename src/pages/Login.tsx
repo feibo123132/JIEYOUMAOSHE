@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Phone, ShieldCheck, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { sendPhoneCode, signInWithPhoneCode, getOrCreateUser } from '@/services/cloudbase';
+import { sendCode, verifyCode, getOrCreateUser } from '@/services/cloudbase';
 import { useApp } from '@/contexts/AppContext';
 
 const Login: React.FC = () => {
@@ -25,8 +25,8 @@ const Login: React.FC = () => {
     if (!/^1\d{10}$/.test(phone)) { setError('手机号格式不正确'); return }
     setError(''); setLoading(true);
     try {
-      const res = await sendPhoneCode(phone);
-      setRequestId(res.requestId);
+      const ok = await sendCode(phone);
+      if (!ok) throw new Error('CloudBase 未提供手机号验证码发送 API');
       setCountdown(60);
     } catch (e: any) {
       setError(e?.message ? `验证码发送失败：${e.message}` : '验证码发送失败');
@@ -38,7 +38,7 @@ const Login: React.FC = () => {
     if (!/^\d{6}$/.test(code)) { setError('验证码格式不正确'); return }
     setError(''); setLoading(true);
     try {
-      const uid = await signInWithPhoneCode(phone, code, requestId);
+      const uid = await verifyCode(phone, code);
       localStorage.setItem('tcb_auth', uid);
       const user = await getOrCreateUser(uid);
       dispatch({ type: 'SET_USER', payload: user });

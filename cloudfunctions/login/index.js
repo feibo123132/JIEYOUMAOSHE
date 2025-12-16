@@ -5,35 +5,43 @@ exports.main = async (event, context) => {
   const app = cloudbase.init({ env: ENV_ID })
   const auth = app.auth()
 
-  const { action, phone, code } = event || {}
+  const { action, phone, code, requestId } = event || {}
 
-  if (action === 'send') {
-    if (!/^1\d{10}$/.test(String(phone || ''))) {
-      return { result: { ok: false, message: 'bad_phone' } }
+  try {
+    if (action === 'send') {
+      if (!/^1\d{10}$/.test(String(phone || ''))) {
+        return { error: 'bad_phone', message: 'invalid phone' }
+      }
+      if (typeof auth.sendSmsCode === 'function') {
+        const r = await auth.sendSmsCode({ phoneNumber: String(phone) })
+        return { result: { ok: true, requestId: r?.requestId } }
+      }
+      if (typeof auth.sendPhoneCode === 'function') {
+        const r = await auth.sendPhoneCode({ phoneNumber: String(phone) })
+        return { result: { ok: true, requestId: r?.requestId } }
+      }
+      return { error: 'api_unavailable', message: 'CloudBase 未提供手机号验证码发送 API' }
     }
-    // CloudBase SDK 新版：sendSmsCode；旧版可能需要接入短信通道
-    if (typeof auth.sendSmsCode === 'function') {
-      await auth.sendSmsCode({ phoneNumber: String(phone) })
-      return { result: { ok: true } }
+
+    if (action === 'verify') {
+      if (!/^1\d{10}$/.test(String(phone || '')) || !/^\d{6}$/.test(String(code || ''))) {
+        return { error: 'bad_params', message: 'invalid phone or code' }
+      }
+      if (typeof auth.signInWithPhone === 'function') {
+        const res = await auth.signInWithPhone({ phoneNumber: String(phone), code: String(code) })
+        const uid = res?.user?.uid || res?.uid
+        return { result: { uid } }
+      }
+      if (typeof auth.signInWithPhoneCode === 'function') {
+        const res = await auth.signInWithPhoneCode({ phoneNumber: String(phone), code: String(code), requestId })
+        const uid = res?.user?.uid || res?.uid
+        return { result: { uid } }
+      }
+      return { error: 'api_unavailable', message: 'CloudBase 未提供手机号验证码登录 API' }
     }
-    // 如无内置方法，这里应接入短信服务（腾讯云短信）；示例直接返回成功以便联调
-    return { result: { ok: true } }
+
+    return { error: 'bad_action', message: 'unknown action' }
+  } catch (e) {
+    return { error: 'operation_fail', message: e?.message || String(e) }
   }
-
-  if (action === 'verify') {
-    if (!/^1\d{10}$/.test(String(phone || '')) || !/^\d{6}$/.test(String(code || ''))) {
-      return { error: 'bad_params' }
-    }
-    // 新版：auth.signInWithPhone
-    if (typeof auth.signInWithPhone === 'function') {
-      const res = await auth.signInWithPhone({ phoneNumber: String(phone), code: String(code) })
-      const uid = res?.user?.uid || res?.uid
-      return { result: { uid } }
-    }
-    // 兼容：旧版可能不同接口；示例返回固定 uid 以便前端联调
-    return { result: { uid: `mock_${String(phone)}` } }
-  }
-
-  return { error: 'bad_action' }
 }
-
